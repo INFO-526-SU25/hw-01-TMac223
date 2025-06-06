@@ -1,38 +1,445 @@
 ---
-title: "HW 01"
+title: "HW-01"
 author: "Trevor Macdonald"
 format: 
   html:
-    embed-resources: true
+    #embed-resources: true
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    #number-sections: true
+    theme: cosmo
 toc: true
 ---
 
 ## 0 - Setup
 
-```{r setup}
+```{r message=FALSE}
+#| label: setup
+
+#load and install essential libraries
 if (!require("pacman")) 
   install.packages("pacman")
 
-# use this line for installing/loading
-# pacman::p_load() 
+pacman::p_load(
+  tidyverse,    # Core tidyverse packages
+  here,         # File path management
+  ggrepel,      # Smarter text labels for plots
+  ggthemes,     # Extra ggplot2 themes
+  scales,       # Axis label formatting
+  waffle,       # Waffle charts for categorical data
+  countdown,
+  scales,
+  openintro,
+  patchwork
+)
 
-devtools::install_github("tidyverse/dsbox")
+# Set default theme for ggplot2
+ggplot2::theme_set(ggplot2::theme_minimal(base_size = 14))
+
+# Global output width
+options(width = 65)
+
+# Global knitr options
+knitr::opts_chunk$set(
+  fig.width = 7,        # 7" width
+  fig.asp = 0.618,      # Golden ratio aesthetic
+  fig.retina = 3,       # dpi multiplier for displaying HTML output on retina
+  fig.align = "center", # Center align figures
+  dpi = 300             # Higher dpi, sharper image
+)
 ```
 
 ## 1 - Road traffic accidents in Edinburgh
 
-```{r label-me-1}
+```{r}
+#| label: traffic plot
+
+# Read in data and suppress output
+road_accidents <- read_csv(here("data", "accidents.csv"), show_col_types = FALSE) 
+
+# View data
+#road_accidents |> 
+  #slice_head(n = 10)
+
+# Clean and wrangle
+road_accidents_wrangle <- road_accidents |>
+  # Convert time
+  mutate(time_of_day = hms::as_hms(time)) |>
+  # Create a weekend & weekday variable
+  mutate(
+    day_type = case_when(
+      day_of_week %in% c("Saturday", "Sunday") ~ "Weekend",
+      TRUE ~ "Weekday"
+    )
+  )
+
+#Create plot object
+ggplot(road_accidents_wrangle, aes(x = time, fill = severity)) +
+  geom_density( alpha = 0.6) +
+  facet_wrap(~ day_type, ncol = 1) +
+    
+  scale_fill_manual(
+    values = c(               # alternate
+      "Fatal" = "#9e78b2",    # "firebrick1"
+      "Serious" = "#6bb3c9",  # "dodgerblue1"
+      "Slight" = "#f8e36c",   # "seagreen2"
+      name = "Severity"
+    ) 
+  ) +
+  scale_x_time(labels = scales::time_format("%H:%M")
+  ) +
+  labs(
+    title = "Number of accidents throughout the day",
+    subtitle = "By day of week and severity",
+    caption = "Source: roadtraffic.dft.gov.uk",
+    x = "Time of day",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    legend.position = "right",
+
+  ) 
 
 ```
 
+Road traffic accidents during weekdays produce a bimodal distribution with apparent peaks around 8:30 am and 5:00 pm, possibly corresponding to morning and afternoon rush hours. The peak is slightly dampened for the "serious" category. This may be a consequence of accident classification because both "serious" and "slight" categories are very similar in shape. The difference becomes harder to explain in the weekend graph. I was most surprised by the "fatal" category. I assumed there would be a large peak during the same time or maybe even an increase during late night hours. There was no data to observe in the fatal category for weekend. I am very interested to see how the distribution would change under the assumption that more drinking and risky behavior happens during weekends.
+
 ## 2 - NYC marathon winners
 
-```{r label-me-2}
+```{r message=FALSE}
+#| label: Marathon histogram plot
+
+##| label: Load and Inspect
+nyc_marathon <- read_csv(here("data", "nyc_marathon.csv"))
+
+# Inspect the data
+#nyc_marathon |>
+  #slice_head(n=10)
+
+# fliter/clean
+nyc_marathon_clean <- nyc_marathon |> 
+  filter(!is.na(time))
+
+# Histogram all runners
+hist <- ggplot(nyc_marathon_clean, aes(x = time)) +
+  geom_histogram( bins = 30, alpha = 0.6, fill = "purple",color = "black"
+  ) +
+scale_x_time(
+  labels = time_format("%H:%M"),
+  breaks = scales::breaks_width("15 min")
+  ) +
+  labs(
+    title = "NYC Marathon Completion Time",
+    subtitle = "1970 to 2000",
+    caption = "Source: openintro",
+    x = "Completion Time (HH:MM)",
+    y = "Number of Runners"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+
+# Box plot all runners
+box <- ggplot(nyc_marathon_clean, aes(x = time)) +
+  geom_boxplot(alpha = 0.6, fill = "purple",color = "black") +
+  scale_x_time(labels = scales::time_format("%H:%M")) +
+  labs(
+    title = "NYC Marathon Completion Time",
+    subtitle = "1970 to 2000",
+    caption = "Source: openintro",
+    x = "Completion Time (HH:MM)",
+    y = "All Runners",
+    
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_blank(),
+    # axis.ticks.y = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) 
+
+```
+
+```{r}
+#| label: stacked-plot
+
+# Histogram plot
+p_hist <- ggplot(nyc_marathon_clean, aes(x = time)) +
+  geom_histogram(
+    bins = 30,
+    alpha = 0.6,
+    fill = "purple",
+    color = "black"
+  ) +
+  scale_x_time(
+    labels = time_format("%H:%M"),
+    breaks = scales::breaks_width("15 min")
+  ) +
+  labs(
+    title = "NYC Marathon Completion Time",
+    subtitle = "1970 to 2000",
+    x = NULL,
+    y = "Number of Runners"
+  ) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5)
+  )
+
+# Boxplot 
+box <- ggplot(nyc_marathon_clean, aes(x = time)) +
+  geom_boxplot(
+    fill = "purple",
+    color = "black",
+    alpha = 0.6
+  ) +
+  scale_x_time(
+    labels = scales::time_format("%H:%M"),
+    breaks = scales::breaks_width("15 min")
+  ) +
+  labs(
+    x = "Completion Time (HH:MM)",
+    y = NULL,
+    caption = "Source: openintro"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+# Stack plots
+hist / box + plot_layout(heights = c(3, 1))
+
+```
+
+```{r}
+#| label: Marathon both divisions
+
+# Histogram by division
+ggplot(nyc_marathon_clean, aes(x = time, fill = division)) +
+  geom_histogram(
+    bins = 30,
+    alpha = 0.6,
+    color = "black"
+  ) +
+  facet_wrap(~ division, ncol = 1) +
+  scale_fill_manual(
+    values = c("Men" = "blue", "Women" = "hotpink1"),
+    name = "Division"
+  ) +
+  scale_x_time(labels = time_format("%H:%M")) +
+  labs(
+    title = "NYC Marathon Completion Time by Division",
+    subtitle = "1970 to 2000",
+    caption = "Source: openintro",
+    x = "Completion Time (HH:MM)",
+    y = "Number of Runners"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    plot.title = element_text(hjust = 0.5,face = "bold"),
+    legend.position = "right"
+  )
+```
+
+```{r}
+#| label: Box plot both divisions
+
+# Box plot by division
+ggplot(nyc_marathon_clean, aes(x = time, y = division, fill = division)) +
+  geom_boxplot( width = 0.6, alpha = 0.6, color = "black") +
+  scale_x_time(labels = scales::time_format("%H:%M")) +
+
+  scale_fill_manual(
+    values = c("Men" = "blue", "Women" = "hotpink1"),
+    name = "Division") +
+  labs(
+    title = "NYC Marathon Completion Time by Division",
+    subtitle = "1970 to 2000",
+    caption = "Source: openintro",
+    x = "Division",
+    y = "Completion Time (HH:MM)"
+  ) +
+  theme(
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    plot.title = element_text(face = "bold"),
+    legend.position = "right"
+  )
+
+
+```
+
+```{r}
+#| label: Median time over the years
+
+# Summarize to median completion time per year and division
+median_times <- nyc_marathon_clean |>
+  group_by(year, division) |>
+  summarise(
+    median_time = median(time, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Line plot of median time over the years
+ggplot(median_times, aes(x = year, y = median_time, color = division)) +
+  geom_line(linewidth = 0.5) +
+  geom_point(size = 1, alpha = 0.7) +
+  scale_y_time(
+    labels = scales::time_format("%H:%M"),
+    breaks = scales::breaks_width("15 min")
+  ) +
+  scale_color_manual(
+    values = c("Men" = "blue", "Women" = "hotpink1"),
+    name = "Division"
+  ) +
+  labs(
+    title = "NYC Marathon Median Completion Time by Year",
+    subtitle = "1970 to 2000, grouped by division",
+    caption = "Source: openintro",
+    x = "Year",
+    y = "Median Completion Time (HH:MM)"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right"
+  )
+
 
 ```
 
 ## 3 - US counties
 
+```{r message=FALSE}
+#| label: load data
+county <- county
+#county |> 
+  #slice_head(n = 10)
+```
+
+a.  What does the following code do? Does it work? Does it make sense? Why/why not?
+
+Answer: The following code makes a plot, but it makes no sense. ggplot is trying to combine two geom objects that use different variables. It essentially just plots a nonsensical mess. My suggestion would be to choose two variable and create a scatter plot and then facet by the remaining variables
+
+```{r}
+ggplot(county) +
+  geom_point(aes(x = median_edu, y = median_hh_income)) +
+  geom_boxplot(aes(x = smoking_ban, y = pop2017))
+```
+
+b.  Which of the following two plots makes it easier to compare poverty levels (poverty) across people from different median education levels (median_edu)? What does this say about when to place a faceting variable across rows or columns?
+
+Answer: I believe plot #2 is best. Poverty (y) as a function of homeownership (x) faceted by education appears to be the most readable. If we are comparing a single variable (y = poverty) as a function of the other variables, it doesn't really make sense to facet rows because it just redefines the poverty scale on each category. The same argument could be made for education, so I would facet with shape and color to simplify the graph.
+
+```{r}
+ggplot(county %>% filter(!is.na(median_edu))) + 
+  geom_point(aes(x = homeownership, y = poverty)) + 
+  facet_grid(median_edu ~ .)
+```
+
+```{r}
+ggplot(county %>% filter(!is.na(median_edu))) + 
+  geom_point(aes(x = homeownership, y = poverty)) + 
+  facet_grid(. ~ median_edu)
+```
+
+c.  Recreate the R code necessary to generate the following graphs. Note that wherever a categorical variable is used in the plot, it’s `metro`.
+
+```{r}
+#| label: Graph recreate 3c
+
+
+# Plot A
+plot_a <- ggplot(county, aes(x = homeownership, y = poverty)) +
+  geom_point() +
+  labs(title = "Plot A")
+
+# Plot B
+plot_b <- ggplot(county, aes(x = homeownership, y = poverty)) +
+  geom_point() +
+  geom_smooth(se = FALSE, color = "blue") +
+  labs(title = "Plot B")
+
+# Plot C (green confidence bands)
+plot_c <- ggplot(county, aes(x = homeownership, y = poverty, color = metro)) +
+  geom_point(color = "black") +
+  geom_smooth(se = TRUE) +
+  scale_color_manual(values = c("green", "green")) +
+  labs(title = "Plot C") +
+  theme(legend.position = "none")
+
+# Plot D (blue confidence bands)
+plot_d <- ggplot(county, aes(x = homeownership, y = poverty, color = metro)) +
+  geom_point(color = "black") +
+  geom_smooth(se = TRUE) +
+  scale_color_manual(values = c("blue", "blue")) +
+  labs(title = "Plot D") +
+  theme(legend.position = "none")
+
+# Stack plots 
+plot_a / plot_b / plot_c / plot_d
+
+```
+
 ## 4 - Rental apartments in SF
 
+
+
 ## 5 - Napoleon’s march.
+
+```{r message=FALSE}
+
+# Read in data
+napoleon <- read_rds("data/napoleon.rds")
+
+# Assign variables
+troops <- napoleon$troops
+cities <- napoleon$cities
+temps <- napoleon$temperatures
+
+
+p1 <- ggplot(troops, aes(x = long, y = lat)) +
+  geom_path(
+    aes(linewidth = survivors, color = direction),
+    lineend = "round"
+  ) +
+  scale_linewidth(range = c(0.5, 10), name = "Survivors") +
+  scale_color_manual(values = c("advance" = "tan4", "retreat" = "firebrick")) +
+  geom_text_repel(data = cities, aes(label = city), size = 3) +
+  labs(
+    title = "Napoleon's Russian Campaign of 1812",
+    subtitle = "Visualization inspired by Charles Minard's original chart",
+    x = "Longitude", y = "Latitude"
+  ) +
+  theme_minimal(base_size = 14)
+
+# Temperature plot (separate panel)
+p2 <- ggplot(temps, aes(x = long, y = temp)) +
+  geom_line(color = "steelblue") +
+  geom_text(aes(label = paste0(temp, "°C")), hjust = -0.1, size = 3) +
+  labs(
+    x = "Longitude",
+    y = "Temperature (°C)",
+    title = "Temperature during Retreat"
+  ) +
+  theme_minimal(base_size = 1)
+
+# Display using patchwork (optional)
+library(patchwork)
+p1 / p2
+```
