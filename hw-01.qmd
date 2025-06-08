@@ -9,6 +9,7 @@ format:
     code-fold: true
     #number-sections: true
     theme: cosmo
+    #theme: journal
 toc: true
 ---
 
@@ -24,14 +25,16 @@ if (!require("pacman"))
 pacman::p_load(
   tidyverse,    # Core tidyverse packages
   here,         # File path management
-  ggrepel,      # Smarter text labels for plots
+  ggrepel,      # Text labels for plots
   ggthemes,     # Extra ggplot2 themes
   scales,       # Axis label formatting
   waffle,       # Waffle charts for categorical data
   countdown,
   scales,
   openintro,
-  patchwork
+  patchwork,    # Used for stacking charts
+  ggpmisc       # Add equation to chart
+
 )
 
 # Set default theme for ggplot2
@@ -53,9 +56,9 @@ knitr::opts_chunk$set(
 ## 1 - Road traffic accidents in Edinburgh
 
 ```{r}
-#| label: traffic plot
+#| label: Road traffic accidents plot
 
-# Read in data and suppress output
+# Load data and suppress output
 road_accidents <- read_csv(here("data", "accidents.csv"), show_col_types = FALSE) 
 
 # View data
@@ -74,13 +77,13 @@ road_accidents_wrangle <- road_accidents |>
     )
   )
 
-#Create plot object
+#Plot
 ggplot(road_accidents_wrangle, aes(x = time, fill = severity)) +
   geom_density( alpha = 0.6) +
   facet_wrap(~ day_type, ncol = 1) +
     
   scale_fill_manual(
-    values = c(               # alternate
+    values = c(               #  alternate colors
       "Fatal" = "#9e78b2",    # "firebrick1"
       "Serious" = "#6bb3c9",  # "dodgerblue1"
       "Slight" = "#f8e36c",   # "seagreen2"
@@ -101,80 +104,24 @@ ggplot(road_accidents_wrangle, aes(x = time, fill = severity)) +
     axis.text.x = element_text(size = 9),
     axis.text.y = element_text(size = 9),
     legend.position = "right",
-
   ) 
-
 ```
 
-Road traffic accidents during weekdays produce a bimodal distribution with apparent peaks around 8:30 am and 5:00 pm, possibly corresponding to morning and afternoon rush hours. The peak is slightly dampened for the "serious" category. This may be a consequence of accident classification because both "serious" and "slight" categories are very similar in shape. The difference becomes harder to explain in the weekend graph. I was most surprised by the "fatal" category. I assumed there would be a large peak during the same time or maybe even an increase during late night hours. There was no data to observe in the fatal category for weekend. I am very interested to see how the distribution would change under the assumption that more drinking and risky behavior happens during weekends.
+Road traffic accidents during weekdays produces distribution with apparent peaks around 8:30 am and 5:00 pm, possibly corresponding to morning and afternoon rush hours. The peak is slightly dampened for the "serious" category. This may be a consequence of accident classification because both "serious" and "slight" categories are very similar in shape. The difference becomes harder to explain in the weekend graph. I was most surprised by the "fatal" category. I assumed there would be a large peak during the same time or maybe even an increase during late night hours. There was no data to observe in the fatal category for weekend. I am very interested to see how the distribution would change under the assumption that more drinking and risky behavior happens during weekends.
 
 ## 2 - NYC marathon winners
-
-```{r message=FALSE}
-#| label: Marathon histogram plot
-
-##| label: Load and Inspect
-nyc_marathon <- read_csv(here("data", "nyc_marathon.csv"))
-
-# Inspect the data
-#nyc_marathon |>
-  #slice_head(n=10)
-
-# fliter/clean
-nyc_marathon_clean <- nyc_marathon |> 
-  filter(!is.na(time))
-
-# Histogram all runners
-hist <- ggplot(nyc_marathon_clean, aes(x = time)) +
-  geom_histogram( bins = 30, alpha = 0.6, fill = "purple",color = "black"
-  ) +
-scale_x_time(
-  labels = time_format("%H:%M"),
-  breaks = scales::breaks_width("15 min")
-  ) +
-  labs(
-    title = "NYC Marathon Completion Time",
-    subtitle = "1970 to 2000",
-    caption = "Source: openintro",
-    x = "Completion Time (HH:MM)",
-    y = "Number of Runners"
-  ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x = element_text(size = 9),
-    axis.text.y = element_text(size = 9),
-    plot.title = element_text(hjust = 0.5, face = "bold")
-  )
-
-
-# Box plot all runners
-box <- ggplot(nyc_marathon_clean, aes(x = time)) +
-  geom_boxplot(alpha = 0.6, fill = "purple",color = "black") +
-  scale_x_time(labels = scales::time_format("%H:%M")) +
-  labs(
-    title = "NYC Marathon Completion Time",
-    subtitle = "1970 to 2000",
-    caption = "Source: openintro",
-    x = "Completion Time (HH:MM)",
-    y = "All Runners",
-    
-  ) +
-  theme(
-    axis.text.x = element_text(size = 9),
-    axis.text.y = element_blank(),
-    # axis.ticks.y = element_blank(),
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5)
-  ) 
-
-```
 
 ```{r}
 #| label: stacked-plot
 
-# Histogram plot
-p_hist <- ggplot(nyc_marathon_clean, aes(x = time)) +
+#Load and clean
+nyc_marathon <- read_csv(here("data", "nyc_marathon.csv"), show_col_types = FALSE)
+
+nyc_marathon_clean <- nyc_marathon |>
+  filter(!is.na(time) & is.finite(time))
+
+# Histogram object
+hist <- ggplot(nyc_marathon_clean, aes(x = time)) +
   geom_histogram(
     bins = 30,
     alpha = 0.6,
@@ -194,11 +141,10 @@ p_hist <- ggplot(nyc_marathon_clean, aes(x = time)) +
   theme(
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5)
+    axis.text.y = element_text(size = 9)
   )
 
-# Boxplot 
+# Boxplot object
 box <- ggplot(nyc_marathon_clean, aes(x = time)) +
   geom_boxplot(
     fill = "purple",
@@ -217,13 +163,16 @@ box <- ggplot(nyc_marathon_clean, aes(x = time)) +
   theme(
     axis.text.x = element_text(size = 9),
     axis.text.y = element_blank(),
-    strip.text = element_text(face = "bold")
   )
 
 # Stack plots
-hist / box + plot_layout(heights = c(3, 1))
+hist / box + plot_layout(heights = c(4, 1))
 
 ```
+
+a.  Create a histogram and a box plot of the distribution of marathon times of all runners in the dataset. What features of the distribution are apparent in the histogram and not the box plot? What features are apparent in the box plot but not in the histogram?
+
+    Answer: The histogram clearly shows two distinct peaks that represent the male and female completion time distributions. The box plot shows the median value of both distributions combined, this is not apparent on the histogram.
 
 ```{r}
 #| label: Marathon both divisions
@@ -240,7 +189,9 @@ ggplot(nyc_marathon_clean, aes(x = time, fill = division)) +
     values = c("Men" = "blue", "Women" = "hotpink1"),
     name = "Division"
   ) +
-  scale_x_time(labels = time_format("%H:%M")) +
+    scale_x_time(
+    labels = scales::time_format("%H:%M"),
+    breaks = scales::breaks_width("15 min") ) +
   labs(
     title = "NYC Marathon Completion Time by Division",
     subtitle = "1970 to 2000",
@@ -251,57 +202,95 @@ ggplot(nyc_marathon_clean, aes(x = time, fill = division)) +
   theme(
     axis.text.x = element_text(size = 9),
     axis.text.y = element_text(size = 9),
-    plot.title = element_text(hjust = 0.5,face = "bold"),
     legend.position = "right"
   )
 ```
+
+b.  Create a side-by-side box plots of marathon times for men and women. Use different colors for the each of the box plots – do not use the default colors, but instead manually define them (you can choose any two colors you want). Based on the plots you made, compare the distribution of marathon times for men and women.
+
+    Answer: Both histogram distributions are right skewed with fat tails, although the female division appears to have more variance in the outliers. The median completion time for the male division is lower than the female division.
 
 ```{r}
 #| label: Box plot both divisions
 
-# Box plot by division
+# Box plot
 ggplot(nyc_marathon_clean, aes(x = time, y = division, fill = division)) +
-  geom_boxplot( width = 0.6, alpha = 0.6, color = "black") +
-  scale_x_time(labels = scales::time_format("%H:%M")) +
+  geom_boxplot( width = 0.8, alpha = 0.6, color = "black") +
 
   scale_fill_manual(
     values = c("Men" = "blue", "Women" = "hotpink1"),
-    name = "Division") +
+    name = "Division") +  
+  scale_x_time(
+    labels = scales::time_format("%H:%M"),
+    breaks = scales::breaks_width("15 min")
+    ) + 
+  
   labs(
     title = "NYC Marathon Completion Time by Division",
     subtitle = "1970 to 2000",
     caption = "Source: openintro",
-    x = "Division",
-    y = "Completion Time (HH:MM)"
+    x = "Completion Time (HH:MM)",
+    y = "Division"
   ) +
+  
   theme(
-    axis.text.x = element_text(size = 9),
     axis.text.y = element_text(size = 9),
-    plot.title = element_text(face = "bold"),
     legend.position = "right"
-  )
-
-
+    )
 ```
 
-```{r}
-#| label: Median time over the years
+c.  What information in the above plot is redundant? Redo the plot avoiding this redundancy. How does this update change the data-to-ink ratio?
 
-# Summarize to median completion time per year and division
-median_times <- nyc_marathon_clean |>
+    Answer: Some of the labeling is redundant. I removed the color as well. I believe this is the minimum amount if information or "ink" that can be used to convey the relationship.
+
+```{r}
+#| label: Box plot both divisions Low Ink
+
+# Box plot
+ggplot(nyc_marathon_clean, aes(x = time, y = division)) +
+  geom_boxplot( width = 0.8, fill = NA, color = "black") +
+  scale_x_time(
+    labels = scales::time_format("%H:%M"),
+    breaks = scales::breaks_width("15 min")) + 
+  
+  labs(
+    title = "NYC Marathon Completion Time by Division",
+    subtitle = "1970 to 2000",
+    caption = "Source: openintro",
+    x = "(HH:MM)",
+    y = NULL
+  ) +
+  theme(
+    axis.text.y = element_text(size = 9),
+    legend.position = "none"
+    )
+```
+
+d.  Visualize the marathon times of men and women over the years. As is usual with time series plot, year should go on the x-axis. Use different colors and shapes to represent the times for men and women. Make sure your colors match those in the previous part. Once you have your plot, describe what is visible in this plot but not in the others.
+
+    Answer: A downtrend over the years is visible in each division. What is not visible in the other plots is that the difference between median completion time for each division. This difference appears to be constant because you can see the trend for each division move in tandem with eachother. Another interesting artifact is the outlier data point at the end. This could possibly be from covid, but can't be concluded from this data. I would be very interested to see the following years.
+
+```{r}
+#| label: Median time years
+
+# Create median time object
+median_time <- nyc_marathon_clean |>
   group_by(year, division) |>
   summarise(
     median_time = median(time, na.rm = TRUE),
     .groups = "drop"
   )
-
-# Line plot of median time over the years
-ggplot(median_times, aes(x = year, y = median_time, color = division)) +
+# Line plot 
+ggplot(median_time, aes(x = year, y = median_time, color = division)) +
   geom_line(linewidth = 0.5) +
-  geom_point(size = 1, alpha = 0.7) +
+  geom_point(aes(shape = division), size = 1, alpha = 0.7) +
   scale_y_time(
     labels = scales::time_format("%H:%M"),
     breaks = scales::breaks_width("15 min")
+  ) +
+  scale_shape_manual(
+    values = c("Men" = 2, "Women" = 1),
+    name = "Division"
   ) +
   scale_color_manual(
     values = c("Men" = "blue", "Women" = "hotpink1"),
@@ -309,32 +298,39 @@ ggplot(median_times, aes(x = year, y = median_time, color = division)) +
   ) +
   labs(
     title = "NYC Marathon Median Completion Time by Year",
-    subtitle = "1970 to 2000, grouped by division",
+    subtitle = "1970 to 2000",
     caption = "Source: openintro",
     x = "Year",
     y = "Median Completion Time (HH:MM)"
   ) +
   theme(
-    plot.title = element_text(face = "bold"),
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.x = element_text(size = 9), 
     legend.position = "right"
   )
-
-
 ```
 
 ## 3 - US counties
 
 ```{r message=FALSE}
 #| label: load data
+
 county <- county
 #county |> 
   #slice_head(n = 10)
+
+#clean
+county_clean <-
+  county %>%
+  filter(
+    !is.na(pop2017),
+    !is.na(median_edu)
+  )
+
 ```
 
 a.  What does the following code do? Does it work? Does it make sense? Why/why not?
 
-Answer: The following code makes a plot, but it makes no sense. ggplot is trying to combine two geom objects that use different variables. It essentially just plots a nonsensical mess. My suggestion would be to choose two variable and create a scatter plot and then facet by the remaining variables
+Answer: The following code makes a plot, but it makes no sense. ggplot is trying to combine two geom objects that use different variables. It essentially just plots a nonsensical mess. My suggestion would be to choose two variables and create a scatter plot and then facet by the remaining variables
 
 ```{r}
 ggplot(county) +
@@ -344,7 +340,7 @@ ggplot(county) +
 
 b.  Which of the following two plots makes it easier to compare poverty levels (poverty) across people from different median education levels (median_edu)? What does this say about when to place a faceting variable across rows or columns?
 
-Answer: I believe plot #2 is best. Poverty (y) as a function of homeownership (x) faceted by education appears to be the most readable. If we are comparing a single variable (y = poverty) as a function of the other variables, it doesn't really make sense to facet rows because it just redefines the poverty scale on each category. The same argument could be made for education, so I would facet with shape and color to simplify the graph.
+Answer: I believe plot #2 is best. Poverty (y) as a function of home ownership (x) faceted by education appears to be the most readable. If we are comparing a single variable (y = poverty) as a function of the other variables, it doesn't really make sense to facet rows because it just redefines the poverty scale on each category. The same argument could be made for education, so I would facet with shape and color to simplify the graph.
 
 ```{r}
 ggplot(county %>% filter(!is.na(median_edu))) + 
@@ -360,86 +356,338 @@ ggplot(county %>% filter(!is.na(median_edu))) +
 
 c.  Recreate the R code necessary to generate the following graphs. Note that wherever a categorical variable is used in the plot, it’s `metro`.
 
-```{r}
-#| label: Graph recreate 3c
+```{r message=FALSE}
+#| label: Plot A
 
-
-# Plot A
-plot_a <- ggplot(county, aes(x = homeownership, y = poverty)) +
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
   geom_point() +
-  labs(title = "Plot A")
-
-# Plot B
-plot_b <- ggplot(county, aes(x = homeownership, y = poverty)) +
-  geom_point() +
-  geom_smooth(se = FALSE, color = "blue") +
-  labs(title = "Plot B")
-
-# Plot C (green confidence bands)
-plot_c <- ggplot(county, aes(x = homeownership, y = poverty, color = metro)) +
-  geom_point(color = "black") +
-  geom_smooth(se = TRUE) +
-  scale_color_manual(values = c("green", "green")) +
-  labs(title = "Plot C") +
-  theme(legend.position = "none")
-
-# Plot D (blue confidence bands)
-plot_d <- ggplot(county, aes(x = homeownership, y = poverty, color = metro)) +
-  geom_point(color = "black") +
-  geom_smooth(se = TRUE) +
-  scale_color_manual(values = c("blue", "blue")) +
-  labs(title = "Plot D") +
-  theme(legend.position = "none")
-
-# Stack plots 
-plot_a / plot_b / plot_c / plot_d
-
+  labs(
+      title = "Plot A"
+  ) 
 ```
 
-## 4 - Rental apartments in SF
+```{r message=FALSE}
+#| label: Plot B
 
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
+  geom_point() +
+  geom_smooth(se = FALSE, color = "blue") +
+  labs(
+    title = "Plot B"
+  ) + theme_grey()
+```
 
+```{r message=FALSE}
+#| label: Plot C
 
-## 5 - Napoleon’s march.
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
+  geom_point() +
+  geom_smooth(aes(color = metro), se = FALSE) +
+  scale_color_manual(values = c(no = "green", yes = "green")) +
+  theme(legend.position = "none") + # no legend
+  labs(
+    title = "Plot C"
+  ) + theme_grey()
+```
+
+```{r message=FALSE}
+#| label: Plot D
+
+# Scatter plus smoothes for metro. Smoothes are under the scatter
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
+  # Draws the smoothing line first
+  geom_smooth(
+    aes(color = metro),
+    se = FALSE
+  ) +
+#Render points on top
+  geom_point() +
+  scale_color_manual(
+    values = c(no = "blue", yes = "blue")
+  ) +
+  theme(legend.position = "none") +
+  labs(
+    title = "Plot D"
+  ) + theme_grey()
+```
+
+```{r message=FALSE}
+#| label: Plot E
+
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
+  geom_point(aes(color = metro)) +
+  geom_smooth(aes(linetype = metro),
+              color = "blue",
+              se     = FALSE) +
+  scale_color_manual(values = c(
+    no  = "#F8766D",
+    yes = "#00BFC4"
+  )) +
+  scale_linetype_manual(values = c(
+    no  = "solid",
+    yes = "dashed"
+  )) +
+  labs(
+    title = "Plot E"
+  ) + theme_grey()
+```
+
+```{r message=FALSE}
+#| label: Plot F
+
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
+  geom_point(aes(color = metro)) +
+  geom_smooth(aes(color = metro), se = FALSE) +
+  scale_color_manual(values = c(
+    no  = "#F8766D",
+    yes = "#00BFC4"
+  )) +
+  labs(
+    title = "Plot F"
+  ) + theme_grey()
+```
+
+```{r message=FALSE}
+#| label: Plot G
+
+ggplot(county_clean, aes(x = homeownership, y = poverty)) +
+  geom_point(aes(color = metro)) +
+  geom_smooth(aes(group = 1), se = FALSE, color = "blue") +
+  scale_color_manual(values = c(
+    no  = "#F8766D",
+    yes = "#00BFC4"
+  )) +
+  labs(
+    title = "Plot G"
+  ) + theme_grey()
+```
+
+```{r message=FALSE}
+#| label: Plot H
+
+ggplot(county_clean, aes(x = homeownership, y = poverty, color = metro)) +
+  geom_point() +
+  scale_color_manual(values = c(
+    no  = "#F8766D",
+    yes = "#00BFC4"
+  )) +
+  labs(
+    title = "Plot H"
+  ) + theme_grey()
+```
+
+## 4 - Credit card balances
+
+a.  Recreate the following visualization. The only aspect you do not need to match are the colors, however you should use a pair of colors of your own choosing to indicate students and non-students. Choose colors that appear “distinct enough” from each other to you. Then, describe the relationship between income and credit card balance, touching on how/if the relationship varies based on whether the individual is a student or not or whether they’re married or not.
+
+    Answer: For non students, the slope of the linear regression is visually indistinguishable in the marriage categories, but the regression slope and R squared value suggest they have equal predictive power in explaining debt to income. The slightly higher slope for the non married category might be explained by the lack of dual income assuming married couples combine finances.
+
+    For students, the R squared values around 0.13-0.14 suggests there is much less predictive power. The lower slope and intercept might be explained by duel income or maybe financial aid eligibility.
+
+```{r message=FALSE}
+#| label: Debt to income
+# Load data
+credit <- read_csv("data/credit.csv", show_col_types = FALSE)
+
+ggplot(credit, aes(x = income, y = balance, 
+                   color = student, shape = student)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", se = FALSE) +
+  #add equation to plot
+    stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    size = 3,
+    color = "black",
+    label.x.npc = "left",
+    label.y.npc = "top"
+  ) +
+  facet_grid(student ~ married, labeller = label_both) +
+  scale_color_manual(
+    values = c("No"  = "#9e78b2", 
+               "Yes" = "#6bb3c9")  
+  ) +
+  scale_x_continuous(
+    labels = dollar_format(prefix = "$", suffix = "K"), 
+    breaks = seq(0, 200, 50)
+  ) +
+  scale_y_continuous(labels = dollar_format(prefix = "$")) +
+
+  labs(
+    x     = "Income",
+    y     = "Credit card balance"
+  ) +
+  theme(
+    strip.background  = element_rect(color = "grey20", fill = "grey80", linewidth = 0.5),
+    legend.position   = "none",
+    panel.border = element_rect(color = "grey20", fill = NA, linewidth = 0.5)
+)
+```
+
+b.  Based on your answer to part (a), do you think `married` and `student` might be useful predictors, in addition to `income` for predicting credit card balance? Explain your reasoning.
+
+    Answer: I believe that non student status has the best predictive power, but I do not think it is a reliable metric because 75% of the variance is unexplained. In the case of students, it's even less.
+
+c.  Credit utilization is defined as the proportion of credit balance to credit limit. Calculate credit utilization for all individuals in the `credit` data, and use it to recreate the following visualization. Once again, the only aspect of the visualization you do not need to match are the colors, but you should use the same colors from the previous exercise.
 
 ```{r message=FALSE}
 
-# Read in data
+#| label: Utilization
+
+
+# Variable
+credit_u <- credit |> 
+  mutate(utilization = balance / limit)
+
+ # Plot
+ggplot(credit_u, aes(x = income, y = utilization, 
+                   color = student, shape = student)) +
+  geom_point(alpha = 0.6, size = 2) +
+  geom_smooth(method = "lm", se = FALSE) +
+    # I used chatgpt for the syntax to dd equation to plot
+  
+    stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+    formula = y ~ x,
+    parse = TRUE,
+    size = 3,
+    color = "black",
+    label.x.npc = "left",
+    label.y.npc = "top"
+  ) +
+  facet_grid(student ~ married, labeller = label_both) +
+  scale_color_manual(
+    values = c("No"  = "#9e78b2", 
+               "Yes" = "#6bb3c9")  
+  ) +
+  scale_x_continuous(
+    labels = dollar_format(prefix = "$", suffix = "K"), 
+    breaks = seq(0, 200, 50)
+  ) +
+  scale_y_continuous(
+    labels = percent_format(accuracy = 1),
+    limits = c(0, NA)
+  ) +
+  labs(
+    x = "Income",
+    y = "Credit utilization"
+  ) +
+  theme(
+    strip.background  = element_rect(color = "grey20", fill = "grey80", linewidth = 0.5),
+    legend.position   = "none",
+    panel.border = element_rect(color = "grey20", fill = NA, linewidth = 0.5)
+  )
+```
+
+d.  Based on the plot from part (c), how, if at all, are the relationships between income and credit utilization different than the relationships between income and credit balance for individuals with various student and marriage status.
+
+    Answer: The R squared values are very low. There doesn't appear to be any predictive power in these regressions with the exception of maybe student non married plot, but the sample size is also very small. There are visual relationships, but they do not mean anything with such a low R squared value. Further investigation might utilize data transformations to reveal a more robust relationship.
+
+## 5 - Napoleon’s march.
+
+**Napoleon’s march.** The instructions for this exercise are simple: recreate the Napoleon’s march plot by Charles John Minard in ggplot2. The data is provided as a list, saved as `napoleon.rds`. Read it in using `read_rds()`. This object has three elements: `cities`, `temperatures`, and `troops`. Each of these is a data frame, and the three of them combined contain all of the data you need to recreate the visualization. Your goal isn’t to create an exact replica of the original plot, but to get as close to it as you can using code you understand and can describe articulately in your response. I’ll be the first to say that if you google “Napoleon’s march in ggplot2”, you’ll find a bunch of blog posts, tutorials, etc. that walk you through how to recreate this visualization with ggplot2. So you might be thinking, “why am I being asked to copy something off the internet for my homework?” Well, this is an exercise in (1) working with web resources and citing them properly, (2) understanding someone else’s ggplot2 code and reproducing their work, (3) describing what that code does in your own words, and finally (4) putting some final touches to make the final product your own. Some more guidelines below:
+
+-   You should make sure your response properly cites all of the resources you use. I’m defining “use” to include “browse, read, get inspired by, or directly borrow snippets of code from”. You don’t need to worry about formal citations, it’s okay to make a list with links to your resources and provide a brief summary of how you used each one.
+
+-   For this exercise, you’re asked to describe what your code does (instead of interpreting the visualization, since we already did that in class). If you write the code, it should be straightforward for you to describe it. If you borrow any code from outside resources, you need to understand what that code does, and describe it, ***in your own words***. (This is important, you’re allowed to use found code, but you are not allowed to copy someone’s blog post or tutorial as your description of their code.)
+
+-   Finally, you should personalize the visualization with your own touch. You can do this in a myriad of ways, e.g., change colors, annotations, labels, etc. This change should be made to make the plot more like the original in some way. You need to explicitly call out what change you made and why you made it.
+
+```{r message=FALSE}
+#| label: Napoleon's march set up
+
+#Laod Data
 napoleon <- read_rds("data/napoleon.rds")
 
-# Assign variables
+#Assign variables
 troops <- napoleon$troops
 cities <- napoleon$cities
 temps <- napoleon$temperatures
 
-
-p1 <- ggplot(troops, aes(x = long, y = lat)) +
-  geom_path(
-    aes(linewidth = survivors, color = direction),
-    lineend = "round"
-  ) +
-  scale_linewidth(range = c(0.5, 10), name = "Survivors") +
-  scale_color_manual(values = c("advance" = "tan4", "retreat" = "firebrick")) +
-  geom_text_repel(data = cities, aes(label = city), size = 3) +
-  labs(
-    title = "Napoleon's Russian Campaign of 1812",
-    subtitle = "Visualization inspired by Charles Minard's original chart",
-    x = "Longitude", y = "Latitude"
-  ) +
-  theme_minimal(base_size = 14)
-
-# Temperature plot (separate panel)
-p2 <- ggplot(temps, aes(x = long, y = temp)) +
-  geom_line(color = "steelblue") +
-  geom_text(aes(label = paste0(temp, "°C")), hjust = -0.1, size = 3) +
-  labs(
-    x = "Longitude",
-    y = "Temperature (°C)",
-    title = "Temperature during Retreat"
-  ) +
-  theme_minimal(base_size = 1)
-
-# Display using patchwork (optional)
-library(patchwork)
-p1 / p2
 ```
+
+```{r}
+
+#| label: Napoleon's march plot
+
+# Create troops movement plot 
+plot_troops <- ggplot() +
+
+  # Draw path of troops, with thickness corresponding to survivors and color for direction
+  geom_path(data = troops, aes(
+    x = long, y = lat, group = group,
+    color = direction, size = survivors
+  ),
+  lineend = "round"  # smooths edges on path lines
+  ) +
+  # Add points for city locations
+  geom_point(data = cities, aes(x = long, y = lat),
+             color = "red") +
+  # Add city names. Overlap avoided with geom_text_repel
+  geom_text_repel(data = cities, aes(x = long, y = lat, label = city),
+                  color = "orange") +
+  # Map and scale line thickness to survivors
+  scale_size(range = c(0.5, 15)) +
+  # Manually assign color for directions of groups
+  scale_colour_manual(values = c("brown4", "black")) +
+  # Remove x and y axis titles
+  labs(x = NULL, y = NULL) +
+  # Remove legend
+  guides(color = FALSE, size = FALSE) +
+  # Theme settings
+  theme(
+    panel.grid.major = element_blank(),     # Remove major gridlines
+    panel.grid.minor = element_blank(),     # Remove minor gridlines
+    axis.text = element_blank(),            # Remove axis text (tick labels)
+    axis.ticks = element_blank(),           # Remove axis ticks
+    panel.border = element_blank(),         # Remove border around plot
+    axis.title = element_blank()            # Remove axis titles
+  )
+
+temps_date <- temps %>%
+  # Create label with temp and date
+  mutate(label = paste0(temp, "°, ", month, ". ", day))
+  # Create temperature plot object
+plot_temp <- ggplot(data = temps_date, aes(x = long, y = temp)) +
+  # Line showing temperature over longitude
+  geom_line() +
+  # Add temperature labels with date
+  geom_label(aes(label = label), size = 1.5) +
+  # Add y-axis label only
+  labs(x = NULL, y = "° Celsius") +
+  # Scale and match x-axis to troop plot to align horizontally
+  scale_x_continuous(
+    limits = ggplot_build(plot_troops)$layout$panel_params[[1]]$x.range
+  ) +
+  # Set vertical range
+  coord_cartesian(ylim = c(-35, 5)) +
+  # Theme additions or removals
+  theme(
+    panel.grid.major.x = element_blank(),  # remove vertical gridlines
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_blank(),         # remove x-axis text
+    axis.ticks = element_blank(),          # remove all axis ticks
+    panel.border = element_blank(),        # remove plot border
+    axis.text = element_text(size = 9),    # shrink axis font size
+    axis.title.y = element_text(margin = margin(r = 10))  # push y-axis label slightly left
+  )
+
+  # Stack plots vertically using patchwork.
+  # I had issues using ggplot, so I debugged and used patchwork instead. 
+  # I went back and used this patchwork for other plots in the HW
+(plot_troops / plot_temp) +
+  plot_layout(heights = c(3, 1)) +
+  plot_annotation(
+    title = "Minard's plot of Napoleon's 1812 Russian Campaign",
+    theme = theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+  )
+
+```
+
+Recreating Minard’s ended up being much more difficult than I anticipated. I eventually read about it being used as a sort of standard in data visualization because of how difficult it is to reproduce.
+
+The plot is cited as being very ugly and cluttered. On the other hand it conveys a lot of information and is used as a way to practice data visualization. So now I'm not sure if people love it or hate it. I think it's very ugly and the only utility it to practice coding and showing students what not to do.
+
+To make the plot I originally tried using `gridExtra` to stack the plots, but ran into rendering issues in Quarto. After some debugging (ChatGPT and google) I switched to the `patchwork` package, which worked out.
+
+I used Andrew Heiss’s blog post (<https://www.andrewheiss.com/blog/2017/08/10/exploring-minards-1812-plot-with-ggplot2/>) as a starting point. I started by copying the structure of his code and eventually abandoned his version and made things from scratch. I added a personal touch by choosing my own colors. I am unsure how to make this plot more like the original version. The aesthetics are very difficult to replicate. Over all I'd say this particular plot was the most difficult and time consuming.
