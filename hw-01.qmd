@@ -3,7 +3,7 @@ title: "HW-01"
 author: "Trevor Macdonald"
 format: 
   html:
-    #embed-resources: true
+    embed-resources: true
     toc: true
     toc-depth: 2
     code-fold: true
